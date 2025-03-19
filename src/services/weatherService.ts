@@ -16,15 +16,15 @@ const mapWeatherCondition = (condition: string): WeatherCondition => {
 
 // Map OpenWeather icon codes to Lucide icon names
 const mapWeatherIcon = (iconCode: string): string => {
-  const iconMap: Record<string, string> => {
+  const iconMap: Record<string, string> = {
     '01d': 'Sun', // clear sky day
     '01n': 'Moon', // clear sky night
     '02d': 'CloudSun', // few clouds day
     '02n': 'CloudMoon', // few clouds night
     '03d': 'Cloud', // scattered clouds
     '03n': 'Cloud',
-    '04d': 'Clouds', // broken clouds
-    '04n': 'Clouds',
+    '04d': 'Cloud', // broken clouds (changed from 'Clouds' which doesn't exist in lucide)
+    '04n': 'Cloud',
     '09d': 'CloudDrizzle', // shower rain
     '09n': 'CloudDrizzle',
     '10d': 'CloudRain', // rain day
