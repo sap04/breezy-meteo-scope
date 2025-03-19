@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
 import { WeatherForecast } from '@/types/weather';
-import { mockWeatherData, getWeatherForLocation } from '@/data/mockWeather';
+import { mockWeatherData } from '@/data/mockWeather';
+import { fetchWeatherForecast } from '@/services/weatherService';
 import { useToast } from '@/components/ui/use-toast';
 
 export function useWeather() {
@@ -16,17 +17,14 @@ export function useWeather() {
     setError(null);
     
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // In a real app, we would call an actual weather API here
-      const data = getWeatherForLocation(searchLocation);
-      
-      // Animate transition by fading out current data
+      // Set transition state
       setWeather(prev => ({ ...prev, isTransitioning: true }));
       
-      // Wait for transition
+      // Wait for transition animation
       await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Fetch real weather data
+      const data = await fetchWeatherForecast(searchLocation);
       
       // Update with new data
       setWeather({ ...data, isTransitioning: false });
@@ -39,10 +37,15 @@ export function useWeather() {
       });
     } catch (err) {
       console.error('Error fetching weather data:', err);
-      setError('Failed to fetch weather data. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to fetch weather data';
+      setError(errorMessage);
+      
+      // Revert to non-transitioning state on error
+      setWeather(prev => ({ ...prev, isTransitioning: false }));
+      
       toast({
         title: "Error",
-        description: "Failed to fetch weather data. Please try again.",
+        description: errorMessage,
         variant: "destructive",
         duration: 3000,
       });
@@ -52,7 +55,7 @@ export function useWeather() {
   };
 
   useEffect(() => {
-    // Initial weather fetch
+    // Initial weather fetch - start with real data
     fetchWeather();
   }, []);
 

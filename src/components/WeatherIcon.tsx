@@ -1,3 +1,4 @@
+
 import { cn } from '@/lib/utils';
 import * as LucideIcons from 'lucide-react';
 import { WeatherCondition } from '@/types/weather';
@@ -11,16 +12,40 @@ interface WeatherIconProps {
 }
 
 const WeatherIcon = ({ condition, icon, size = 24, className, animated = true }: WeatherIconProps) => {
-  const LucideIcon = LucideIcons[icon as keyof typeof LucideIcons] as React.ElementType;
+  // Convert to PascalCase for Lucide icon name format
+  // This ensures that names like "cloud-rain" are properly converted to "CloudRain"
+  const formatIconName = (name: string) => {
+    // If the icon already follows PascalCase naming convention
+    if (/^[A-Z][a-zA-Z0-9]*$/.test(name)) {
+      return name;
+    }
+    
+    // Convert dash/hyphen format to PascalCase
+    return name.split('-').map(part => 
+      part.charAt(0).toUpperCase() + part.slice(1)
+    ).join('');
+  };
+  
+  const iconName = formatIconName(icon);
+  const LucideIcon = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
   
   if (!LucideIcon) {
-    console.warn(`Icon ${icon} not found`);
-    return null;
+    console.warn(`Icon ${icon} (${iconName}) not found`);
+    // Fallback icons based on weather condition
+    const fallbackIconMap: Record<WeatherCondition, keyof typeof LucideIcons> = {
+      sunny: 'Sun',
+      cloudy: 'Cloud',
+      rainy: 'CloudRain',
+      snowy: 'CloudSnow'
+    };
+    
+    const FallbackIcon = LucideIcons[fallbackIconMap[condition]];
+    return <FallbackIcon size={size} color={getIconColor(condition)} strokeWidth={1.5} />;
   }
   
   // Color mapping based on condition
-  const getIconColor = () => {
-    switch (condition) {
+  const getIconColor = (weatherCondition: WeatherCondition) => {
+    switch (weatherCondition) {
       case 'sunny':
         return '#FF9800';
       case 'cloudy':
@@ -59,7 +84,7 @@ const WeatherIcon = ({ condition, icon, size = 24, className, animated = true }:
     )}>
       <LucideIcon 
         size={size} 
-        color={getIconColor()} 
+        color={getIconColor(condition)} 
         strokeWidth={1.5} 
       />
     </div>
