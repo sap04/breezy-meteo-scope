@@ -29,4 +29,5 @@ export interface ForecastDay {
 export interface WeatherForecast {
   current: WeatherData;
   forecast: ForecastDay[];
+  isTransitioning?: boolean; // Added this property to fix the TypeScript error
 }

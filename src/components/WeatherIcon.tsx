@@ -1,5 +1,3 @@
-
-import { Icon } from '@/types/weather';
 import { cn } from '@/lib/utils';
 import * as LucideIcons from 'lucide-react';
 import { WeatherCondition } from '@/types/weather';
