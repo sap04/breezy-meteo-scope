@@ -12,6 +12,22 @@ interface WeatherIconProps {
 }
 
 const WeatherIcon = ({ condition, icon, size = 24, className, animated = true }: WeatherIconProps) => {
+  // Color mapping based on condition
+  const getIconColor = (weatherCondition: WeatherCondition) => {
+    switch (weatherCondition) {
+      case 'sunny':
+        return '#FF9800';
+      case 'cloudy':
+        return '#78909C';
+      case 'rainy':
+        return '#42A5F5';
+      case 'snowy':
+        return '#90CAF9';
+      default:
+        return 'currentColor';
+    }
+  };
+
   // Convert to PascalCase for Lucide icon name format
   // This ensures that names like "cloud-rain" are properly converted to "CloudRain"
   const formatIconName = (name: string) => {
@@ -42,22 +58,6 @@ const WeatherIcon = ({ condition, icon, size = 24, className, animated = true }:
     const FallbackIcon = LucideIcons[fallbackIconMap[condition]];
     return <FallbackIcon size={size} color={getIconColor(condition)} strokeWidth={1.5} />;
   }
-  
-  // Color mapping based on condition
-  const getIconColor = (weatherCondition: WeatherCondition) => {
-    switch (weatherCondition) {
-      case 'sunny':
-        return '#FF9800';
-      case 'cloudy':
-        return '#78909C';
-      case 'rainy':
-        return '#42A5F5';
-      case 'snowy':
-        return '#90CAF9';
-      default:
-        return 'currentColor';
-    }
-  };
   
   const getAnimation = () => {
     if (!animated) return '';

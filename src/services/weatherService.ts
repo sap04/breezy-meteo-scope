@@ -1,4 +1,3 @@
-
 import { WeatherData, WeatherForecast, ForecastDay, WeatherCondition } from '@/types/weather';
 
 // OpenWeather API key
