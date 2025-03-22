@@ -2,7 +2,7 @@
 import { WeatherData, WeatherForecast, ForecastDay, WeatherCondition } from '@/types/weather';
 
 // OpenWeather API key
-const API_KEY = 'YOUR_API_KEY'; // Replace this with your actual API key
+const API_KEY = '1ff00422cd19027950da54450d08b94b'; // Replace this with your actual API key
 const BASE_URL = 'https://api.openweathermap.org/data/2.5';
 
 // Map OpenWeather conditions to our app's conditions
