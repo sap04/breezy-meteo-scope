@@ -1,56 +1,126 @@
+
 import { WeatherData, WeatherForecast, ForecastDay, WeatherCondition } from '@/types/weather';
 
-// OpenWeather API key
-const API_KEY = '1ff00422cd19027950da54450d08b94b'; // Replace this with your actual API key
-const BASE_URL = 'https://api.openweathermap.org/data/2.5';
+// Open-Meteo API base URL
+const BASE_URL = 'https://api.open-meteo.com/v1';
+const GEO_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 
-// Map OpenWeather conditions to our app's conditions
-const mapWeatherCondition = (condition: string): WeatherCondition => {
-  if (condition.includes('clear')) return 'sunny';
-  if (condition.includes('cloud')) return 'cloudy';
-  if (condition.includes('rain') || condition.includes('drizzle')) return 'rainy';
-  if (condition.includes('snow')) return 'snowy';
+// Map Open-Meteo WMO codes to our app's conditions
+// WMO Weather interpretation codes: https://open-meteo.com/en/docs
+const mapWeatherCondition = (code: number): WeatherCondition => {
+  // Clear
+  if (code === 0 || code === 1) return 'sunny';
+  // Cloudy or partly cloudy
+  if (code >= 2 && code <= 3) return 'cloudy';
+  // Fog, drizzle, or rain
+  if ((code >= 4 && code <= 10) || (code >= 45 && code <= 67)) return 'rainy';
+  // Snow
+  if (code >= 71 && code <= 86) return 'snowy';
+  // Thunderstorm
+  if (code >= 95 && code <= 99) return 'rainy';
+  
   return 'sunny'; // Default
 };
 
-// Map OpenWeather icon codes to Lucide icon names
-const mapWeatherIcon = (iconCode: string): string => {
-  const iconMap: Record<string, string> = {
-    '01d': 'Sun', // clear sky day
-    '01n': 'Moon', // clear sky night
-    '02d': 'CloudSun', // few clouds day
-    '02n': 'CloudMoon', // few clouds night
-    '03d': 'Cloud', // scattered clouds
-    '03n': 'Cloud',
-    '04d': 'Cloud', // broken clouds (changed from 'Clouds' which doesn't exist in lucide)
-    '04n': 'Cloud',
-    '09d': 'CloudDrizzle', // shower rain
-    '09n': 'CloudDrizzle',
-    '10d': 'CloudRain', // rain day
-    '10n': 'CloudRain', // rain night
-    '11d': 'CloudLightning', // thunderstorm
-    '11n': 'CloudLightning',
-    '13d': 'CloudSnow', // snow
-    '13n': 'CloudSnow',
-    '50d': 'CloudFog', // mist
-    '50n': 'CloudFog',
+// Map WMO codes to Lucide icon names
+const mapWeatherIcon = (code: number, isDay: boolean): string => {
+  const iconMap: Record<number, string> = {
+    // Clear sky
+    0: isDay ? 'Sun' : 'Moon',
+    // Mainly clear
+    1: isDay ? 'SunDim' : 'MoonDim',
+    // Partly cloudy
+    2: isDay ? 'CloudSun' : 'CloudMoon',
+    // Overcast
+    3: 'Cloud',
+    // Fog
+    45: 'CloudFog',
+    46: 'CloudFog',
+    // Drizzle
+    51: 'CloudDrizzle',
+    53: 'CloudDrizzle',
+    55: 'CloudDrizzle',
+    // Freezing Drizzle
+    56: 'CloudDrizzle',
+    57: 'CloudDrizzle',
+    // Rain
+    61: 'CloudRain',
+    63: 'CloudRain',
+    65: 'CloudRain',
+    // Freezing Rain
+    66: 'CloudRain',
+    67: 'CloudRain',
+    // Snow
+    71: 'CloudSnow',
+    73: 'CloudSnow',
+    75: 'CloudSnow',
+    // Snow grains
+    77: 'CloudSnow',
+    // Shower
+    80: 'CloudDrizzle',
+    81: 'CloudRain',
+    82: 'CloudRain',
+    // Snow shower
+    85: 'CloudSnow',
+    86: 'CloudSnow',
+    // Thunderstorm
+    95: 'CloudLightning',
+    96: 'CloudLightning',
+    99: 'CloudLightning'
   };
-  return iconMap[iconCode] || 'Cloud';
+
+  return iconMap[code] || 'Cloud';
 };
 
 // Format the date for forecast display
-const formatDay = (timestamp: number): { day: string; date: string } => {
-  const date = new Date(timestamp * 1000);
+const formatDay = (dateStr: string): { day: string; date: string } => {
+  const date = new Date(dateStr);
   const day = date.toLocaleDateString('en-US', { weekday: 'short' });
-  const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return { day, date: dateStr };
+  const dateFormatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return { day, date: dateFormatted };
 };
 
-// Fetch current weather data
-export const fetchCurrentWeather = async (location: string): Promise<WeatherData> => {
+// Get coordinates from location name
+const getLocationCoordinates = async (location: string): Promise<{ lat: number; lon: number; name: string }> => {
   try {
     const response = await fetch(
-      `${BASE_URL}/weather?q=${encodeURIComponent(location)}&units=metric&appid=${API_KEY}`
+      `${GEO_URL}?name=${encodeURIComponent(location)}&count=1`
+    );
+    
+    if (!response.ok) {
+      throw new Error('Failed to geocode location');
+    }
+    
+    const data = await response.json();
+    
+    if (!data.results || data.results.length === 0) {
+      throw new Error('Location not found');
+    }
+    
+    const result = data.results[0];
+    return {
+      lat: result.latitude,
+      lon: result.longitude,
+      name: result.name
+    };
+  } catch (error) {
+    console.error('Error geocoding location:', error);
+    throw error;
+  }
+};
+
+// Fetch current weather data and forecast
+export const fetchWeatherForecast = async (location: string): Promise<WeatherForecast> => {
+  try {
+    // First get coordinates from location name
+    const { lat, lon, name } = await getLocationCoordinates(location);
+    
+    // Fetch weather data from Open-Meteo
+    const response = await fetch(
+      `${BASE_URL}/forecast?latitude=${lat}&longitude=${lon}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,pressure_msl,visibility,is_day` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+      `&timezone=auto`
     );
     
     if (!response.ok) {
@@ -59,133 +129,51 @@ export const fetchCurrentWeather = async (location: string): Promise<WeatherData
     
     const data = await response.json();
     
-    return {
-      location: data.name,
-      temperature: Math.round(data.main.temp),
-      feelsLike: Math.round(data.main.feels_like),
-      condition: mapWeatherCondition(data.weather[0].main.toLowerCase()),
-      humidity: data.main.humidity,
-      windSpeed: Math.round(data.wind.speed),
-      pressure: data.main.pressure,
-      uvIndex: 0, // UV index not provided in this API endpoint
-      visibility: Math.round(data.visibility / 1000), // Convert from meters to km
-      icon: mapWeatherIcon(data.weather[0].icon),
+    // Process current weather
+    const currentWeather: WeatherData = {
+      location: name,
+      temperature: Math.round(data.current.temperature_2m),
+      feelsLike: Math.round(data.current.apparent_temperature),
+      condition: mapWeatherCondition(data.current.weather_code),
+      humidity: data.current.relative_humidity_2m,
+      windSpeed: Math.round(data.current.wind_speed_10m),
+      pressure: data.current.pressure_msl,
+      uvIndex: 0, // UV index not provided in this API endpoint by default
+      visibility: Math.round(data.current.visibility / 1000), // Convert from meters to km
+      icon: mapWeatherIcon(data.current.weather_code, data.current.is_day === 1),
     };
-  } catch (error) {
-    console.error('Error fetching current weather:', error);
-    throw error;
-  }
-};
-
-// Fetch 7-day forecast
-export const fetchWeatherForecast = async (location: string): Promise<WeatherForecast> => {
-  try {
-    // First get coordinates from location name
-    const geoResponse = await fetch(
-      `http://api.openweathermap.org/geo/1.0/direct?q=${encodeURIComponent(location)}&limit=1&appid=${API_KEY}`
-    );
     
-    if (!geoResponse.ok) {
-      throw new Error('Failed to geocode location');
-    }
-    
-    const geoData = await geoResponse.json();
-    
-    if (!geoData.length) {
-      throw new Error('Location not found');
-    }
-    
-    const { lat, lon } = geoData[0];
-    
-    // Then get the 5-day forecast
-    const forecastResponse = await fetch(
-      `${BASE_URL}/forecast?lat=${lat}&lon=${lon}&units=metric&appid=${API_KEY}`
-    );
-    
-    if (!forecastResponse.ok) {
-      throw new Error('Failed to fetch forecast data');
-    }
-    
-    const forecastData = await forecastResponse.json();
-    
-    // Get current weather
-    const currentWeather = await fetchCurrentWeather(location);
-    
-    // Process the forecast data to get daily forecasts
-    // OpenWeather free API gives us forecast in 3-hour intervals, so we need to process it
+    // Process 7-day forecast
     const forecastDays: ForecastDay[] = [];
-    const dailyData: Record<string, any> = {};
     
-    // Group forecast data by day
-    forecastData.list.forEach((item: any) => {
-      const date = new Date(item.dt * 1000).toDateString();
-      
-      if (!dailyData[date]) {
-        dailyData[date] = {
-          temps: [],
-          conditions: [],
-          icons: [],
-          dt: item.dt,
-          precipitation: 0,
-        };
-      }
-      
-      dailyData[date].temps.push(item.main.temp);
-      dailyData[date].conditions.push(item.weather[0].main.toLowerCase());
-      dailyData[date].icons.push(item.weather[0].icon);
-      
-      // Calculate chance of precipitation
-      if (item.pop) {
-        dailyData[date].precipitation = Math.max(dailyData[date].precipitation, Math.round(item.pop * 100));
-      }
-    });
-    
-    // Convert grouped data to forecast days
-    Object.keys(dailyData).forEach((date) => {
-      const dayData = dailyData[date];
-      const { day, date: dateStr } = formatDay(dayData.dt);
-      
-      // Calculate most common condition and icon
-      const conditionCounts: Record<string, number> = {};
-      dayData.conditions.forEach((condition: string) => {
-        conditionCounts[condition] = (conditionCounts[condition] || 0) + 1;
-      });
-      
-      const mostCommonCondition = Object.keys(conditionCounts).reduce((a, b) => 
-        conditionCounts[a] > conditionCounts[b] ? a : b
-      );
-      
-      const iconCounts: Record<string, number> = {};
-      dayData.icons.forEach((icon: string) => {
-        iconCounts[icon] = (iconCounts[icon] || 0) + 1;
-      });
-      
-      const mostCommonIcon = Object.keys(iconCounts).reduce((a, b) => 
-        iconCounts[a] > iconCounts[b] ? a : b
-      );
+    for (let i = 0; i < data.daily.time.length && i < 7; i++) {
+      const { day, date } = formatDay(data.daily.time[i]);
       
       forecastDays.push({
         day,
-        date: dateStr,
+        date,
         temperature: {
-          max: Math.round(Math.max(...dayData.temps)),
-          min: Math.round(Math.min(...dayData.temps)),
+          max: Math.round(data.daily.temperature_2m_max[i]),
+          min: Math.round(data.daily.temperature_2m_min[i]),
         },
-        condition: mapWeatherCondition(mostCommonCondition),
-        icon: mapWeatherIcon(mostCommonIcon),
-        precipitation: dayData.precipitation,
+        condition: mapWeatherCondition(data.daily.weather_code[i]),
+        icon: mapWeatherIcon(data.daily.weather_code[i], true), // Assume daytime for forecast icons
+        precipitation: data.daily.precipitation_probability_max[i],
       });
-    });
-    
-    // Limit to 7 days
-    const limitedForecast = forecastDays.slice(0, 7);
+    }
     
     return {
       current: currentWeather,
-      forecast: limitedForecast,
+      forecast: forecastDays,
     };
   } catch (error) {
     console.error('Error fetching weather forecast:', error);
     throw error;
   }
+};
+
+// For backward compatibility - uses the same function now
+export const fetchCurrentWeather = async (location: string): Promise<WeatherData> => {
+  const forecast = await fetchWeatherForecast(location);
+  return forecast.current;
 };

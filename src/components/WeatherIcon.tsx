@@ -43,25 +43,26 @@ const WeatherIcon = ({ condition, icon, size = 24, className, animated = true }:
   };
   
   const iconName = formatIconName(icon);
-  const LucideIcon = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
+  let IconComponent: React.ElementType | null = null;
   
-  // Fallback icons based on weather condition
-  const getFallbackIcon = (): React.ElementType => {
-    const fallbackIconMap: Record<WeatherCondition, keyof typeof LucideIcons> = {
+  // Try to get the icon from Lucide
+  if (iconName in LucideIcons) {
+    IconComponent = LucideIcons[iconName as keyof typeof LucideIcons] as React.ElementType;
+  }
+  
+  // Fallback icons if the specified icon is not found
+  if (!IconComponent) {
+    console.warn(`Icon ${icon} (${iconName}) not found in Lucide, using fallback`);
+    
+    const fallbackMap: Record<WeatherCondition, keyof typeof LucideIcons> = {
       sunny: 'Sun',
       cloudy: 'Cloud',
       rainy: 'CloudRain',
       snowy: 'CloudSnow'
     };
     
-    return LucideIcons[fallbackIconMap[condition]] as React.ElementType;
-  };
-  
-  if (!LucideIcon) {
-    console.warn(`Icon ${icon} (${iconName}) not found`);
-    // Use the getFallbackIcon function to get a valid React component
-    const FallbackIcon = getFallbackIcon();
-    return <FallbackIcon size={size} color={getIconColor(condition)} strokeWidth={1.5} />;
+    const fallbackIconName = fallbackMap[condition];
+    IconComponent = LucideIcons[fallbackIconName] as React.ElementType;
   }
   
   const getAnimation = () => {
@@ -87,7 +88,7 @@ const WeatherIcon = ({ condition, icon, size = 24, className, animated = true }:
       getAnimation(),
       className
     )}>
-      <LucideIcon 
+      <IconComponent 
         size={size} 
         color={getIconColor(condition)} 
         strokeWidth={1.5} 
